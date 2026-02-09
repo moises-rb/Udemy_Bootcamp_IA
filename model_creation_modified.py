@@ -7,6 +7,10 @@ from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.feature_selection import RFE
 import tensorflow as tf
+from tensorflow.keras.regularizers import l2
+from tensorflow.keras.layers import Dropout
+from tensorflow.keras.callbacks import EarlyStopping
+
 
 from src.database import execute_query
 from src.const import QUERY_TREINAMENTO
@@ -83,38 +87,35 @@ print("✅ Modelo e Seletores preparados!")
 
 # 7. Criação do Modelo (TensorFlow/Keras)
 model = tf.keras.Sequential([
-    tf.keras.layers.Dense(128, activation='relu', input_shape=(X_train.shape[1],)),
+    tf.keras.layers.Dense(128, activation='relu', kernel_regularizer=l2(0.01), input_shape=(X_train.shape[1],)),
     tf.keras.layers.Dropout(0.3),
-    tf.keras.layers.Dense(64, activation='relu'),
+    tf.keras.layers.Dense(64,kernel_regularizer=l2(0.01), activation='relu'),
     tf.keras.layers.Dropout(0.3),
-    tf.keras.layers.Dense(32, activation='relu'),
+    tf.keras.layers.Dense(32,kernel_regularizer=l2(0.01), activation='relu'),
     tf.keras.layers.Dropout(0.3),
-    tf.keras.layers.Dense(1, activation='sigmoid')
+    tf.keras.layers.Dense(1,kernel_regularizer=l2(0.01), activation='sigmoid')
 ])
-# Configurando o otimizador
 optimizer = tf.keras.optimizers.Adam(learning_rate=0.001)
-# Compilando o modelo
 model.compile(optimizer=optimizer, loss='binary_crossentropy', metrics=['accuracy'])
 
-# Treinamento do modelo 
+model.add(Dropout(0.5))
 model.fit(
     X_train,
     y_train,
+    callbacks=[EarlyStopping(monitor='val_loss', patience=10, verbose=1, mode='min', restore_best_weights=True)],    
     validation_split=0.2,  # Usa 20% dos dados para validação
     epochs=500,  # Número máximo de épocas
     batch_size=10,
     verbose=1
 )
+
 model.save('meu_modelo.keras')
 
-# Previsões
 y_pred = model.predict(X_test)
 y_pred = (y_pred > 0.5).astype(int)  
 
-# Avaliando o modelo
 print("Avaliação do Modelo nos Dados de Teste:")
 model.evaluate(X_test, y_test)
 
-# Métricas de classificação
 print("\nRelatório de Classificação:")
 print(classification_report(y_test, y_pred))
