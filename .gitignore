@@ -1,0 +1,20 @@
+# Credenciais e Configurações
+env
+.env
+auth.json
+
+# Ambientes Virtuais (VENV)
+venv/
+.venv/
+env/
+Bin/
+Lib/
+
+# Cache do Python
+**/__pycache__/
+*.py[cod]
+*$py.class
+
+# Pastas de IDEs
+.vscode/
+.idea/
