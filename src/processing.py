@@ -74,3 +74,15 @@ def feature_engineering(df: pl.DataFrame) -> pl.DataFrame:
     return df.with_columns(
         (pl.col("valorsolicitado") / pl.col("valortotalbem")).alias("proporcaosolicitadototal")
     )
+
+def load_scalers(df, nomes_colunas):
+    for col in nomes_colunas:
+        scaler = joblib.load(f"objects/scaler_{col}.joblib")
+        df[col] = scaler.transform(df[[col]])
+    return df
+
+def load_encoders(df, nomes_colunas):
+    for col in nomes_colunas:
+        le = joblib.load(f"objects/label_encoder_{col}.joblib")
+        df[col] = le.transform(df[col])
+    return df
