@@ -8,6 +8,10 @@
 Este projeto apresenta uma solução **End-to-End** para análise de risco de crédito, utilizando técnicas avançadas de Machine Learning e Deep Learning.  
 A aplicação vai desde o processamento de grandes volumes de dados até a entrega de uma interface visual interativa para tomada de decisão.
 
+
+
+🔗 **Aplicação online:** https://previsaocredito.streamlit.app/
+
 ---
 
 ## 🚀 Funcionalidades
