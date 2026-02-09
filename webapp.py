@@ -1,89 +1,100 @@
 import streamlit as st
-import requests
+import pandas as pd
+import joblib
+import tensorflow as tf
+import polars as pl
+import os
 
-# URL padrão do Flask rodando localmente
-url = "http://localhost:5000/predict"
+# Importando suas funções de processamento
+from src.processing import load_scalers, load_encoders, feature_engineering
 
-st.title("Cliente para API de Previsão de Empréstimos")
+# Título da aplicação
+st.set_page_config(page_title="Análise de Crédito IA", layout="centered")
+st.title("🛡️ Sistema de Previsão de Empréstimos")
 
-profissoes = ['Advogado', 'Arquiteto', 'Cientista de Dados', 
-              'Contador', 'Dentista', 'Empresário', 'Engenheiro', 'Médico', 'Programador']
+# 1. Carregamento dos Modelos (Usando cache para performance)
+@st.cache_resource
+def load_models():
+    # Carrega o modelo Keras e o seletor de atributos
+    model = tf.keras.models.load_model('meu_modelo.keras')
+    selector = joblib.load('objects/selector.joblib')
+    return model, selector
+
+try:
+    model, selector = load_models()
+except Exception as e:
+    st.error(f"Erro ao carregar modelos: {e}")
+
+# --- Definição das Opções (Igual ao seu código) ---
+profissoes = ['Advogado', 'Arquiteto', 'Cientista de Dados', 'Contador', 'Dentista', 'Empresário', 'Engenheiro', 'Médico', 'Programador']
 tipos_residencia = ['Alugada', 'Outros', 'Própria']
 escolaridades = ['Ens.Fundamental', 'Ens.Médio', 'PósouMais', 'Superior']
 scores = ['Baixo', 'Bom', 'Justo', 'MuitoBom']
 estados_civis = ['Casado', 'Divorciado', 'Solteiro', 'Víuvo']
-produtos = ['AgileXplorer', 'DoubleDuty', 'EcoPrestige', 'ElegantCruise', 
-            'SpeedFury', 'TrailConqueror', 'VoyageRoamer', 'WorkMaster']
+produtos = ['AgileXplorer', 'DoubleDuty', 'EcoPrestige', 'ElegantCruise', 'SpeedFury', 'TrailConqueror', 'VoyageRoamer', 'WorkMaster']
 
+# Formuário de entrada
 with st.form(key='prediction_form'):
-    profissao = st.selectbox('Profissão', profissoes)
-    tempo_profissao = st.number_input('Tempo na profissão (em anos)', min_value=0, value=0, step=1)
-    renda = st.number_input('Renda mensal', min_value=0.0, value=0.0, step=1000.0)
-    tipo_residencia = st.selectbox('Tipo de residência', tipos_residencia)
-    escolaridade = st.selectbox('Escolaridade', escolaridades)
-    score = st.selectbox('Score', scores)
-    idade = st.number_input('Idade', min_value=18, max_value=110, value=25, step=1)
-    dependentes = st.number_input('Dependentes', min_value=0, value=0, step=1)
-    estado_civil = st.selectbox('Estado Civil', estados_civis)
-    produto = st.selectbox('Produto', produtos)
-    valor_solicitado = st.number_input('Valor solicitado', min_value=0.0, 
-                                       value=0.0, step=1000.0)
-    valor_total_bem = st.number_input('Valor total do bem', min_value=0.0, 
-                                      value=0.0, step=1000.0)
+    col_a, col_b = st.columns(2)
+    
+    with col_a:
+        profissao = st.selectbox('Profissão', profissoes)
+        tempo_profissao = st.number_input('Tempo na profissão (anos)', min_value=0, value=5)
+        renda = st.number_input('Renda mensal', min_value=0.0, value=5000.0)
+        tipo_residencia = st.selectbox('Tipo de residência', tipos_residencia)
+        escolaridade = st.selectbox('Escolaridade', escolaridades)
+        score = st.selectbox('Score de Crédito', scores)
+        
+    with col_b:
+        idade = st.number_input('Idade', min_value=18, max_value=110, value=30)
+        dependentes = st.number_input('Dependentes', min_value=0, value=0)
+        estado_civil = st.selectbox('Estado Civil', estados_civis)
+        produto = st.selectbox('Produto Solicitado', produtos)
+        valor_solicitado = st.number_input('Valor solicitado', min_value=0.0, value=10000.0)
+        valor_total_bem = st.number_input('Valor total do bem', min_value=0.0, value=20000.0)
 
-    submit_button = st.form_submit_button(label='Consultar')
+    submit_button = st.form_submit_button(label='🚀 Analisar Crédito')
 
 if submit_button:
-    # Cálculo preventivo para evitar divisão por zero
-    proporcao = valor_solicitado / valor_total_bem if valor_total_bem > 0 else 0
-
-    dados_novos = {
-        'profissao': [profissao],
-        'tempoprofissao': [tempo_profissao],
-        'renda': [renda],
-        'tiporesidencia': [tipo_residencia],
-        'escolaridade': [escolaridade],
-        'score': [score],
-        'idade': [idade],
-        'dependentes': [dependentes],
-        'estadocivil': [estado_civil],
-        'produto': [produto],
-        'valorsolicitado': [valor_solicitado],
-        'valortotalbem': [valor_total_bem],
-        'proporcaosolicitadototal': [proporcao]
-    }
-
-    with st.spinner('Analisando perfil de crédito...'):
+    with st.spinner('Processando análise...'):
         try:
-            response = requests.post(url, json=dados_novos)
+            # 2. Preparação dos Dados (Mesma lógica da sua API)
+            proporcao = valor_solicitado / valor_total_bem if valor_total_bem > 0 else 0
             
-            if response.status_code == 200:
-                # Ajuste conforme a estrutura do JSON que vimos no teste_flask
-                res = response.json()
-                dados_pred = res['resultados'][0] # Pega o primeiro (e único) resultado
-                
-                probabilidade = dados_pred['probabilidade'] * 100
-                classe = dados_pred['classe'].upper()
+            dados_dict = {
+                'profissao': [profissao], 'tempoprofissao': [tempo_profissao], 'renda': [renda],
+                'tiporesidencia': [tipo_residencia], 'escolaridade': [escolaridade], 'score': [score],
+                'idade': [idade], 'dependentes': [dependentes], 'estadocivil': [estado_civil],
+                'produto': [produto], 'valorsolicitado': [valor_solicitado], 'valortotalbem': [valor_total_bem],
+                'proporcaosolicitadototal': [proporcao]
+            }
+            
+            df = pd.DataFrame(dados_dict)
 
-                # Visual impactante
-                st.markdown("---")
-                col1, col2 = st.columns(2)
-                
-                with col1:
-                    st.metric(label="Confiança da IA", value=f"{probabilidade:.2f}%")
-                
-                with col2:
-                    if classe == "BOM":
-                        st.success(f"### RESULTADO: {classe} ✅")
-                    else:
-                        st.error(f"### RESULTADO: {classe} ❌")
-                
-                # Opcional: Mostrar uma dica baseada na probabilidade
-                if probabilidade > 90:
-                    st.info("💡 Este cliente apresenta um perfil de baixíssimo risco.")
-                    
+            # 3. Processamento (Scalers e Encoders)
+            # Nota: Certifique-se que load_scalers busca na pasta 'objects/'
+            col_numericas = ['tempoprofissao', 'renda', 'idade', 'dependentes', 
+                            'valorsolicitado', 'valortotalbem', 'proporcaosolicitadototal']
+            
+            df = load_scalers(df, col_numericas)
+            df = load_encoders(df, ['profissao', 'tiporesidencia', 'escolaridade', 'score', 'estadocivil', 'produto'])
+            
+            # 4. Seleção de Atributos e Predição
+            df_selected = selector.transform(df)
+            prediction = model.predict(df_selected)
+            
+            probabilidade = float(prediction[0][0])
+            classe = "BOM" if probabilidade > 0.5 else "RUIM"
+
+            # 5. Interface de Resultado
+            st.markdown("---")
+            c1, c2 = st.columns(2)
+            c1.metric("Confiança da Aprovação", f"{probabilidade*100:.2f}%")
+            
+            if classe == "BOM":
+                c2.success(f"### SCORE: {classe} ✅")
             else:
-                st.error(f"Erro na API: {response.status_code} - {response.text}")
-        
+                c2.error(f"### SCORE: {classe} ❌")
+
         except Exception as e:
-            st.error(f"Falha na conexão com o servidor: {e}")
+            st.error(f"Erro no processamento: {e}")
